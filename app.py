@@ -1,46 +1,68 @@
 import pandas as pd
-from dash import Dash, html, dcc
+from dash import Dash, html, dcc, Input, Output
 import plotly.express as px
 
 # Load data
 df = pd.read_csv("formatted_output.csv")
 
-# Convert Date column to datetime
+# Clean columns
+df.columns = df.columns.str.strip()
+
+# Convert date
 df["Date"] = pd.to_datetime(df["Date"])
 
-# Sort by date
-df = df.sort_values("Date")
-
-# Create line chart
-fig = px.line(
-    df,
-    x="Date",
-    y="Sales",
-    title="Pink Morsel Sales Over Time",
-    labels={
-        "Date": "Date",
-        "Sales": "Total Sales ($)"
-    }
-)
-
-# Create Dash app
+# Create app
 app = Dash(__name__)
 
-app.layout = html.Div(children=[
+app.layout = html.Div([
 
-    # Header
-    html.H1(
-        "Soul Foods Pink Morsel Sales Visualiser",
-        style={"textAlign": "center"}
+    html.H1("Soul Foods Pink Morsel Sales Dashboard",
+            style={"textAlign": "center"}),
+
+    dcc.RadioItems(
+        id="region-filter",
+        options=[
+            {"label": "All", "value": "all"},
+            {"label": "North", "value": "north"},
+            {"label": "East", "value": "east"},
+            {"label": "South", "value": "south"},
+            {"label": "West", "value": "west"},
+        ],
+        value="all",
+        inline=True
     ),
 
-    # Graph
-    dcc.Graph(
-        id="sales-line-chart",
-        figure=fig
-    )
+    dcc.Graph(id="sales-chart")
+
 ])
 
-# Run server
+
+@app.callback(
+    Output("sales-chart", "figure"),
+    Input("region-filter", "value")
+)
+def update_chart(selected_region):
+
+    if selected_region == "all":
+        filtered_df = df
+    else:
+        filtered_df = df[df["Region"].str.lower() == selected_region]
+
+    fig = px.line(
+        filtered_df.sort_values("Date"),
+        x="Date",
+        y="Sales",
+        labels={"Sales": "Total Sales ($)"}
+    )
+
+    fig.add_vline(
+        x="2021-01-15",
+        line_dash="dash",
+        line_color="red"
+    )
+
+    return fig
+
+
 if __name__ == "__main__":
     app.run(debug=True)
